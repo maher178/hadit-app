@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>وقت الجوال الذكي</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: #0d0f12; color: #fff; min-height: 100vh; padding: 20px 16px; display: flex; flex-direction: column; align-items: center; }
+    .card { background: #161920; border: 1px solid #232936; border-radius: 20px; width: 100%; max-width: 440px; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .back-btn { color: #8b949e; text-decoration: none; font-size: 13px; background: #202531; padding: 8px 12px; border-radius: 8px; }
+    .title { font-size: 16px; font-weight: bold; color: #38bdf8; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .stat-box { background: #202531; border: 1px solid #2c3444; border-radius: 14px; padding: 12px; text-align: center; }
+    .stat-val { font-size: 20px; font-weight: bold; }
+    .stat-label { font-size: 11px; color: #94a3b8; }
+
+    .progress-bar-bg { width: 100%; height: 8px; background: #202531; border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+    .progress-bar-fill { height: 100%; width: 0%; background: #38bdf8; transition: width 0.3s; }
+
+    .input-box { background: #1c212c; border: 1px dashed #38bdf8; border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 16px; }
+    .input-field { width: 100%; padding: 11px; border-radius: 8px; border: 1px solid #2c3444; background: #0d0f12; color: #fff; text-align: center; margin: 6px 0; }
+    .main-btn { width: 100%; padding: 12px; background: #38bdf8; color: #000; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+    .warn-box { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="header">
+      <a href="index.html" class="back-btn">→ رجوع للجدول</a>
+      <div class="title">📱 وقت الجوال الذكي</div>
+    </div>
+
+    <div class="warn-box" id="overNotice">
+      ⚠️ لقد استهلكت وقتك المحدد! لديك مهلة 10 دقائق فقط لتسليم الجوال أو يُحسب خطأ (✕) تلقائياً.
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">المستهلك</div>
+        <div class="stat-val" id="spentVal" style="color: #ffd166;">0 س</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">الحد المسموح</div>
+        <div class="stat-val" id="limitVal" style="color: #38bdf8;">--</div>
+      </div>
+    </div>
+
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="timeFill"></div></div>
+
+    <div class="input-box" id="setupSec">
+      <p style="font-size: 13px; margin-bottom: 8px;">كم ساعة مسموح لك اليوم؟</p>
+      <input type="number" id="limitInput" class="input-field" placeholder="مثال: 3 ساعات">
+      <button class="main-btn" onclick="saveLimit()">تثبيت كهدف أساسي ✅</button>
+    </div>
+
+    <div class="input-box" id="logSec" style="display: none;">
+      <p style="font-size: 13px; margin-bottom: 8px;">تسجيل ساعات الاستخدام الفعلي الآن:</p>
+      <input type="number" id="spentInput" class="input-field" placeholder="كم ساعة استخدمت؟" step="0.5">
+      <button class="main-btn" onclick="recordSpent()">تحديث وتثبيت النتيجة 📊</button>
+    </div>
+  </div>
+
+  <script>
+    function loadPhoneData() {
+      const limit = parseFloat(localStorage.getItem('ht_screentime_limit') || '0');
+      const spent = parseFloat(localStorage.getItem('ht_screentime_spent') || '0');
+
+      if (limit > 0) {
+        document.getElementById('setupSec').style.display = 'none';
+        document.getElementById('logSec').style.display = 'block';
+        document.getElementById('limitVal').innerText = `${limit} س`;
+        document.getElementById('spentVal').innerText = `${spent} س`;
+
+        const pct = Math.min(100, Math.round((spent / limit) * 100));
+        const fill = document.getElementById('timeFill');
+        fill.style.width = `${pct}%`;
+
+        const dayIndex = (new Date().getDay() + 1) % 7;
+        let logs = JSON.parse(localStorage.getItem('ht_logs_map') || '{}');
+
+        if (spent > limit) {
+          fill.style.background = '#ef4444';
+          document.getElementById('overNotice').style.display = 'block';
+        } else if (spent > 0 && spent <= limit) {
+          fill.style.background = '#38bdf8';
+          logs[`screentime_${dayIndex}`] = 'done';
+          localStorage.setItem('ht_logs_map', JSON.stringify(logs));
+        }
+      }
+    }
+
+    function saveLimit() {
+      const l = document.getElementById('limitInput').value;
+      if (!l || l <= 0) return alert('أدخل عدد الساعات');
+      localStorage.setItem('ht_screentime_limit', l);
+      loadPhoneData();
+    }
+
+    function recordSpent() {
+      const s = parseFloat(document.getElementById('spentInput').value);
+      if (isNaN(s)) return;
+      localStorage.setItem('ht_screentime_spent', s);
+      loadPhoneData();
+      alert('تم تحديث ساعات الاستخدام ومزامنتها مع الجدول ✅');
+    }
+
+    loadPhoneData();
+  </script>
+</body>
+</html>
