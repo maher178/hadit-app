@@ -4,16 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>نظم يومك</title>
-
-  <!-- إعدادات تحويل الموقع إلى تطبيق رسمي (PWA) -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0b0e14">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="نظم يومك">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2693/2693507.png">
-
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background-color: #0b0e14; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 14px 14px 110px 14px; }
@@ -51,7 +41,7 @@
     .status-btn.done { background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #10b981; }
     .status-btn.missed { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #ef4444; }
 
-    /* شريط التنقل السفلي - مرفوع للأعلى ومعزول عن أزرار النظام */
+    /* شريط التنقل السفلي */
     .bottom-nav {
       position: fixed;
       bottom: 16px;
@@ -113,7 +103,7 @@
 </head>
 <body>
 
-  <!-- شريط علوي مع زر التقويم المنقول للأعلى -->
+  <!-- شريط علوي -->
   <div class="top-header">
     <button class="menu-btn" onclick="toggleSidebar()">☰</button>
     <div class="brand-title">🌙 نظم يومك</div>
@@ -152,7 +142,7 @@
     </table>
   </div>
 
-  <!-- شريط التنقل السفلي الجديد (مرفوع وبدون تقويم) -->
+  <!-- شريط التنقل السفلي -->
   <nav class="bottom-nav">
     <div class="nav-item active" onclick="location.href='index.html'">
       <span>📊 الجدول</span>
@@ -354,14 +344,40 @@
       document.getElementById('weekCalendarModal').style.display = 'flex';
     }
 
-    function saveCustomTask() {
+    async function saveCustomTask() {
       const name = document.getElementById('customTaskName').value.trim();
       const time = document.getElementById('customTaskTime').value;
       if (!name || !time) return alert('أدخل اسم المهمة والوقت');
 
+      const taskId = 'task_' + Date.now();
       let tasks = JSON.parse(localStorage.getItem('ht_custom_tasks') || '[]');
-      tasks.push({ id: 'task_' + Date.now(), name: name, time: time });
+      tasks.push({ id: taskId, name: name, time: time });
       localStorage.setItem('ht_custom_tasks', JSON.stringify(tasks));
+
+      // جدولة التنبيه الرسمي في نظام أندرويد عبر Capacitor
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+        try {
+          const [h, m] = time.split(':').map(Number);
+          let target = new Date();
+          target.setHours(h, m, 0, 0);
+          if (target <= new Date()) {
+            target.setDate(target.getDate() + 1);
+          }
+
+          await window.Capacitor.Plugins.LocalNotifications.schedule({
+            notifications: [{
+              id: Math.floor(Math.random() * 100000),
+              title: `⏰ تذكير مهمة: ${name}`,
+              body: `حان الآن موعد إنجاز ${name}!`,
+              schedule: { at: target, allowWhileIdle: true },
+              channelId: 'prayer-alarms'
+            }]
+          });
+        } catch (e) {
+          console.error('فشل جدولة الإشعار:', e);
+        }
+      }
+
       closeModal('addTaskModal');
       renderHabitsTable();
       updateDailyScore();
@@ -424,12 +440,10 @@
       document.getElementById('scoreSummary').innerText = `أنجزت ${doneToday} من أصل ${totalToday} مهام اليوم`;
     }
 
+    // تهيئة البيانات عند فتح التطبيق
     checkPermissionsOnStart();
+    if (typeof renderHabitsTable === 'function') renderHabitsTable();
+    updateDailyScore();
   </script>
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js');
-  }
-</script>
 </body>
 </html>
